@@ -36,7 +36,7 @@
                             </div>
 
                             
-                            <div class="hidden md:flex items-center gap-6">
+                            <div class="hidden md:flex items-center gap-6" id="desktop-menu">
 
                                 <!-- الصفحة الرئيسية -->
                                 <a href="{{ route('main-page') }}"
@@ -86,6 +86,30 @@
                                     <span class="text-sm">الملف الشخصي</span>
                                 </a>
 
+                                <!-- صفحة الذكاء الاصطناعي / نموذج التعلم الآلي -->
+                                <a href="{{ route('ml-model') }}"
+                                class="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200
+                                {{ request()->routeIs('ml-model') ? 'bg-white bg-opacity-20 font-semibold' : 'hover:bg-white hover:bg-opacity-10' }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path d="M12 2c1.7 0 3 1.3 3 3v1a3 3 0 0 0 3 3h1c1.7 0 3 1.3 3 3s-1.3 3-3 3h-1a3 3 0 0 0-3 3v1c0 1.7-1.3 3-3 3s-3-1.3-3-3v-1a3 3 0 0 0-3-3H5c-1.7 0-3-1.3-3-3s1.3-3 3-3h1a3 3 0 0 0 3-3V5c0-1.7 1.3-3 3-3z"></path>
+                                    </svg>
+                                    <span class="text-sm">الذكاء الاصطناعي</span>
+                                </a>
+
+
+                            </div>
+
+                            
+                            <div id="mobile-menu"
+                                class="hidden flex flex-col gap-4 bg-black bg-opacity-90 p-4 rounded-lg mt-3 md:hidden">
+
+                                <!-- نفس الروابط، انسخها كما هي -->
+                                <a href="{{ route('main-page') }}" class="text-white">الصفحة الرئيسية</a>
+                                <a href="{{ route('suspicious-accounts') }}" class="text-white">شبكة الحسابات المشبوهة</a>
+                                <a href="{{ route('notifications') }}" class="text-white">التنبيهات</a>
+                                <a href="{{ route('profile') }}" class="text-white">الملف الشخصي</a>
+                                <a href="{{ route('ml-model') }}" class="text-white">الذكاء الاصطناعي</a>
+
                             </div>
 
 
@@ -105,13 +129,16 @@
                                 <div class="hidden md:flex items-center gap-2 pr-4 border-r border-white border-opacity-30">
                                     <div class="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center font-bold">م</div>
                                 </div>
-                                <button class="md:hidden p-2 hover:bg-white hover:bg-opacity-10 rounded-lg">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-menu w-6 h-6">
-                                        <line x1="4" x2="20" y1="12" y2="12"></line>
-                                        <line x1="4" x2="20" y1="6" y2="6"></line>
-                                        <line x1="4" x2="20" y1="18" y2="18"></line>
-                                    </svg>
-                                </button>
+                             <button id="menu-toggle" class="md:hidden p-2 hover:bg-white hover:bg-opacity-10 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="4" x2="20" y1="12" y2="12"></line>
+                                    <line x1="4" x2="20" y1="6" y2="6"></line>
+                                    <line x1="4" x2="20" y1="18" y2="18"></line>
+                                </svg>
+                            </button>
+
                                 <script>
 const toggle = document.getElementById('darkToggle');
 toggle.addEventListener('click', () => {
@@ -138,6 +165,19 @@ toggle.addEventListener('click', () => {
             </div>
         </div>
     </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const toggleBtn = document.getElementById('menu-toggle');
+    const mobileMenu = document.getElementById('mobile-menu');
+
+    toggleBtn.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+    });
+});
+</script>
+
+
 
     @yield('scripts')
 </body>

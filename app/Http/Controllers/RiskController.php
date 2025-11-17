@@ -7,85 +7,148 @@ use Illuminate\Http\Request;
 
 class RiskController extends Controller
 {
+    /**
+     * تحليل معاملة واحدة وإرجاع تفاصيل المخاطر
+     */
+    public function analyzeTransaction(float $amount, string $recipient, int $hour): array
+    {
+        // الحصول على المتوسط والانحراف المعياري من قاعدة البيانات
+        $stats = $this->getMeanStdValues(); // ← بدون JSON الآن
+        $mean = $stats['mean'];
+        $std  = $stats['std'];
 
+        // حساب Z-Score
+        $z = $this->zScore($amount, $mean, $std);
 
+        // تحويل Z-Score إلى مخاطرة
+        $amountRisk = $this->zScoreToRisk($z);
+
+        // خطر المستلم
+        $recRisk = $this->recipientRisk($recipient);
+
+        // خطر التوقيت
+        $hRisk = $this->hourRisk($hour);
+
+        // دمج المخاطر
+        $final = $this->finalRisk($amountRisk, $recRisk, $hRisk);
+
+        // تحديد إجراء النظام
+        $action = $this->determineAction($final);
+
+        // إرجاع البيانات
+        return [
+            'amount_risk'     => round($amountRisk, 2),
+            'recipient_risk'  => $recRisk,
+            'hour_risk'       => $hRisk,
+            'final_risk'      => round($final, 2),
+            'action'          => $action,
+        ];
+    }
+
+    /**
+     *  نقطة دخول رئيسية للتحليل عبر API
+     */
     public function analyze(Request $request)
     {
-        // 🟩 1. استقبال البيانات القادمة من الواجهة أو الـ API
-        // هذه البيانات تُرسل من تطبيق مصرف اليقين
-        $amount = $request->amount;        // قيمة المبلغ المُرسل في العملية
-        $recipient = $request->recipient;  // اسم أو هوية المستلم
-        $hour = $request->hour;            // توقيت العملية (من 0 إلى 23)
+        $amount    = $request->amount;
+        $recipient = $request->recipient;
+        $hour      = $request->hour;
 
-        // 🟩 2. تحديد متوسط وانحراف معياري افتراضي لمعاملات المستخدم
-        // في النظام الحقيقي يتم حسابها من سجل معاملات المستخدم نفسه
-        // هنا وضعنا قيمًا تجريبية (mean = 50 , std = 20)
-        $analyzedData = $this->getMeanStd();
-        $mean = $analyzedData['mean'];
-        $std = $analyzedData['std'];
+        // استدعاء دالة التحليل الشاملة
+        $result = $this->analyzeTransaction($amount, $recipient, $hour);
 
-        // $mean = 50;
-        // $std = 20;
-
-        // 🟩 3. حساب Z-Score
-        // z = (القيمة - المتوسط) / الانحراف المعياري
-        // الهدف: معرفة مدى انحراف المبلغ الحالي عن المبالغ المعتادة للمستخدم
-        $z = abs(($amount - $mean) / $std);
-
-        // 🟩 4. تحويل z إلى درجة مخاطرة (0 - 100)
-        // استخدمنا دالة لوغاريتمية ناعمة تجعل الزيادة التدريجية للمخاطرة
-        // مثال: z=0 → 0% خطر ، z=3 → حوالي 80% خطر ، z>=6 → 100% خطر
-        $amountRisk = min(100, (1 - exp(-0.6 * $z)) * 100);
-
-        // 🟩 5. تقييم خطر المستلم (Recipient Risk)
-        // إذا كان المستلم مشبوه أو غير معروف (مثل unknownZ)
-        // نرفع مستوى الخطر، وإلا تكون المخاطرة منخفضة
-        $recipientRisk = $recipient === 'unknownZ' ? 90 : 20;
-
-        // 🟩 6. تقييم خطر التوقيت (Hour Risk)
-        // العمليات التي تتم في أوقات غير معتادة (ليلًا أو متأخرًا)
-        // تكون أكثر خطورة. هنا نقيس بُعد الساعة عن الساعة 12 ظهرًا.
-        // كل ساعة بعد 12 تزيد المخاطرة بمقدار 4%
-        $hourRisk = abs($hour - 12) * 4;
-
-        // 🟩 7. حساب النتيجة النهائية للمخاطرة (Final Risk)
-        // ندمج جميع العوامل بأوزان مختلفة حسب أهميتها
-        // 50% للمبلغ، 30% للمستلم، 20% للتوقيت
-        $final = 0.5 * $amountRisk + 0.3 * $recipientRisk + 0.2 * $hourRisk;
-
-        // 🟩 8. تحديد الإجراء المناسب بناءً على النتيجة
-        // أقل من 40 → مسموح (ALLOW)
-        // بين 40 و 70 → يحتاج تحقق إضافي (CHALLENGE)
-        // 70 أو أكثر → حظر العملية (BLOCK)
-        $action = $final < 40 ? 'ALLOW' : ($final < 70 ? 'CHALLENGE' : 'BLOCK');
-
-        // 🟩 9. إرجاع النتيجة بصيغة JSON إلى الواجهة أو النظام الآخر
-        // يمكن استخدامها لعرضها في Dashboard أو حفظها في قاعدة البيانات
-        return response()->json([
-            'final_risk_percent' => round($final, 2),  // النسبة النهائية للمخاطرة
-            'action' => $action                        // الإجراء المقترح
-        ]);
+        // إرجاع JSON للواجهة
+        return response()->json($result);
     }
 
-
-    public function getMeanStd()
+    /**
+     *  حساب المتوسط والانحراف المعياري لجميع معاملات المستخدم
+     */
+    public function getMeanStdValues(): array
     {
-        // احصل على جميع المبالغ السابقة للمستخدم
-        $transactions = Transaction::first()
-            ->pluck('amount'); // قائمة المبالغ فقط
+        // جلب مبالغ المعاملات
+        $transactions = Transaction::pluck('amount');
+
+        // إذا لا توجد بيانات
+        if ($transactions->count() == 0) {
+            return [
+                'mean' => 50,
+                'std'  => 20
+            ];
+        }
 
         // حساب المتوسط
-        $mean = $transactions->avg(); // قيمة متوسطة
+        $mean = $transactions->avg();
 
         // حساب الانحراف المعياري
-        $std = sqrt($transactions->reduce(function ($carry, $item) use ($mean) {
-            return $carry + pow($item - $mean, 2);
-        }, 0) / $transactions->count());
+        $std = sqrt(
+            $transactions->reduce(function ($carry, $item) use ($mean) {
+                return $carry + pow($item - $mean, 2);
+            }, 0) / $transactions->count()
+        );
 
-        return response()->json([
-            'mean' => $mean,  // متوسط المبالغ المعتادة
-            'std' => $std    // الانحراف المعياري للمبالغ المعتادة
-        ]);
+        return [
+            'mean' => $mean,
+            'std'  => $std
+        ];
     }
 
+
+    /**
+     *  تحديد الإجراء النهائي ALLOW / CHALLENGE / BLOCK
+     */
+    public function determineAction(float $risk): string
+    {
+        if ($risk < 40) {
+            return 'ALLOW';
+        } elseif ($risk < 70) {
+            return 'CHALLENGE';
+        }
+        return 'BLOCK';
+    }
+
+    /**
+     *  دمج عوامل الخطر
+     */
+    public function finalRisk(float $amountRisk, float $recipientRisk, float $hourRisk): float
+    {
+        return 0.5 * $amountRisk + 0.3 * $recipientRisk + 0.2 * $hourRisk;
+    }
+
+    /**
+     *  حساب مخاطرة التوقيت
+     */
+    public function hourRisk(int $hour): float
+    {
+        return abs($hour - 12) * 4;
+    }
+
+    /**
+     *  مخاطرة المستلم
+     */
+    public function recipientRisk(string $recipient): float
+    {
+        $blacklist = ['unknownZ', 'fraud123', 'suspicious_user'];
+
+        return in_array($recipient, $blacklist) ? 90 : 20;
+    }
+
+    /**
+     * 🔥 تحويل Z-Score إلى مخاطرة من 0 إلى 100
+     */
+    public function zScoreToRisk(float $z): float
+    {
+        $z = abs($z);
+        return min(100, (1 - exp(-0.6 * $z)) * 100);
+    }
+
+    /**
+     *  حساب Z-Score
+     */
+    public function zScore(float $value, float $mean, float $std): float
+    {
+        if ($std == 0) return 0;
+
+        return ($value - $mean) / $std;
+    }
 }

@@ -27,3 +27,9 @@ Route::get('/transaction-details', function(){
     return view('transaction-details');
 
 })->name('transactions.show');
+
+
+Route::get('/ml-model', function () {
+    return view('ml-model');
+})->name('ml-model');
+

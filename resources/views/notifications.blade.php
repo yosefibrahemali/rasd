@@ -11,7 +11,7 @@
         
         <div>
             <br>
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">الإشعارات</h1>
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">الإشعارات</h2>
             <p class="text-gray-500 dark:text-gray-400 text-sm">عرض أحدث التنبيهات الخاصة بالمعاملات والحسابات</p>
         </div>
     </div>
